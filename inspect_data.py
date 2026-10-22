@@ -17,4 +17,6 @@ for annotation in raw.annotations[:10]:
         "Start:", annotation["onset"],
         "Duration:", annotation["duration"],
         "Code:", annotation["description"],
+        "Time", annotation["orig_time"],
+        "Names", annotation["ch_names"]
     )

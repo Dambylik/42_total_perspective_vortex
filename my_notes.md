@@ -52,3 +52,54 @@ Runs	      Condition
 4, 8, 12	  Imagined movement
 
 For classification, a common rule is stratification: keep approximately the same class proportions in every fold. If the full set is half left and half right, each fold should also be approximately half left and half right.
+
+
+<Info | 9 non-empty values
+ bads: [] - No channels are currently marked as unreliable.
+ ch_names: FC5, FC3, FC1, ...- Names identifying the sensors.
+ chs: 64 EEG - There are 64 EEG channels.
+ custom_ref_applied: False - describe additional EEG processing settings
+ dig: 67 items (3 Cardinal, 64 EEG) - Position information: 64 electrodes plus three head reference landmarks.
+ highpass: 0.0 Hz - Filter limits recorded in the metadata
+ lowpass: 80.0 Hz - Filter limits recorded in the metadata
+ meas_date: 2009-08-12 16:15:00 UTC - Recording date and time stored in the file.
+ nchan: 64 - There are 64 EEG channels.
+ projs: [] - describe additional EEG processing settings
+ sfreq: 160.0 Hz - Each channel has 160 measurements per second.
+ subject_info: <subject_info | his_id: X, sex: 0, last_name: X> - Participant metadata; the X values are placeholders.
+>
+
+Plot 3: frequency content before filtering
+raw.compute_psd().plot()
+PSD means power spectral density. For now, read it as a view of which frequencies contribute strongly to the signal.
+- Horizontal axis: frequency in Hz.
+- Vertical axis: power per frequency interval, usually displayed on a logarithmic scale.
+Imagine a musical chord: the time plot shows the combined sound wave; this plot helps reveal the frequencies making it up.
+Here, frequency means how quickly the signal oscillates, not how frequently the computer records samples. Those are different ideas.
+
+What does “10–10 system” mean?
+It is a standard way to decide where to place sensors on the head.
+People have different head sizes, so researchers use proportions of head measurements, rather than fixed distances in centimetres. “10–10” refers to spacing based on 10% intervals along measured paths over the head.
+
+2. Why keep approximately 7–30 Hz?
+| Quantity | Meaning |
+|---|---|
+| Sampling rate: **160 Hz** | The computer records 160 values each second. |
+| Signal frequency: **10 Hz**, for example | A wave in the signal repeats approximately 10 times each second. |
+
+No. sfreq: 160.0 Hz means 160 measurements per second, per channel—not 160 cycles of the EEG wave.
+Here, sfreq stands for sampling frequency: how often the equipment records a value.
+“Hz” means “times per second.” What happens that many times depends on the context:
+Context	What repeats?
+Sampling frequency = 160 Hz	Taking a measurement, 160 times per second
+Signal frequency = 10 Hz	A wave completing a cycle, 10 times per second
+
+
+For a simple 10 Hz wave sampled at 160 Hz, we would record 16 measurements during each cycle.
+Also, write 160 Hz or 160 measurements per second—“Hz per second” would add “per second” twice.
+
+
+We need to distinguish two questions:
+Question	What we examine
+“How large are the recorded voltage fluctuations?”	The signal values, in µV
+“How much does each frequency contribute?”	The spectrum: power density, in µV²/Hz

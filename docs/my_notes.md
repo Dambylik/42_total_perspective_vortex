@@ -69,8 +69,12 @@ For classification, a common rule is stratification: keep approximately the same
  subject_info: <subject_info | his_id: X, sex: 0, last_name: X> - Participant metadata; the X values are placeholders.
 >
 
+Data shape: (channels, samples). Each row is one channel; each column is one measurement time.
+
+
 Plot 3: frequency content before filtering
 raw.compute_psd().plot()
+PSD: how power is distributed across frequencies:
 PSD means power spectral density. For now, read it as a view of which frequencies contribute strongly to the signal.
 - Horizontal axis: frequency in Hz.
 - Vertical axis: power per frequency interval, usually displayed on a logarithmic scale.

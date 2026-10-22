@@ -55,8 +55,12 @@ def get_epochs(subject, runs):
     return X, y
 
 
-if __name__ == "__main__":
+def main():
     X, y = get_epochs(1, [4, 8, 12])
     print("X shape (epochs, channels, times):", X.shape)
     print("labels:", set(y.tolist()))
     assert X.ndim == 3 and X.shape[0] == len(y) and set(y.tolist()) == {1, 2}
+
+
+if __name__ == "__main__":
+    main()

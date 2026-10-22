@@ -50,13 +50,9 @@ reproducible measurements before they can be used as project results.
 
 ## Step -1 — Python foundations, learned through this project
 
-- Terminal vs Python interpreter; scripts; indentation; comments; tracebacks.
-- Variables, `int`, `float`, `str`, `bool`, lists, dictionaries, indexing and slicing.
-- `for`, `if`, functions, arguments, return values, imports, modules and file paths.
 - NumPy arrays: shape, axis, indexing, broadcasting, transpose and matrix multiplication.
 - Classes, instances, methods, `self`, inheritance and learned attributes: introduce
   these before writing the CSP transformer, not all at once on day one.
-- Learn the relevant tool just before using it; no need to finish a Python course first.
 
 **Checkpoint:** explain the difference between one value, one channel's time series,
 one multi-channel trial, and a batch of trials.
@@ -72,7 +68,6 @@ one multi-channel trial, and a batch of trials.
 - `requirements.txt` + a one-line "how to run" in the README.
 
 **Learn / check:**
-- What a venv is and why (`python -m venv`, activate, `pip freeze`).
 - The dataset structure: 109 subjects, 14 runs each, `.edf` files, 64 channels, 160 Hz.
 - Map run numbers to labels before coding. PhysioNet defines **four motor task
   conditions**, repeated three times, plus two baseline runs:

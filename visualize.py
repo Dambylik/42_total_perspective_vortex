@@ -7,12 +7,70 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+import numpy as np
 
 from preprocess import HIGH_FREQ, LOW_FREQ, filter_raw, load_raw
 
 
 ANNOTATION_COLORS = {"T0": "tab:blue", "T1": "tab:orange", "T2": "tab:green"}
 IMAGE_DIR = Path(__file__).resolve().parent / "docs" / "images"
+
+
+def print_heat_map(epoch):
+    fig, ax = plt.subplots(figsize=(10, 8))
+    covariance = np.cov(epoch)
+    covariance_uv = covariance * 1e12
+    limit = np.abs(covariance_uv).max()
+
+    image = ax.imshow(
+        covariance_uv,
+        cmap="RdBu_r",
+        vmin=-limit,
+        vmax=limit,
+    )
+
+    ax.set_title("Covariance between 64 channels — first epoch")
+    ax.set_xlabel("Channel index")
+    ax.set_ylabel("Channel index")
+
+    fig.colorbar(image, ax=ax, label="Covariance (µV²)")
+    fig.tight_layout()
+
+    save_figure(fig, "heat_map.png")
+    plt.show()
+    return fig
+
+
+def plot_class_covariances(first_covariance, second_covariance, run, counts):
+    """Compare class averages in µV²; the difference uses its own colour scale."""
+    labels = get_annotation_labels(run)
+    matrices = (first_covariance * 1e12, second_covariance * 1e12)
+    limit = max(np.abs(matrix).max() for matrix in matrices) or 1.0
+    difference = matrices[0] - matrices[1]
+    difference_limit = np.abs(difference).max() or 1.0
+
+    fig, axes = plt.subplots(1, 3, figsize=(17, 6), layout="constrained")
+    fig.suptitle("Average epoch covariances by task — exploratory comparison")
+    for ax, matrix, label, count in zip(
+        axes[:2], matrices, (labels["T1"], labels["T2"]), counts,
+    ):
+        image = ax.imshow(matrix, cmap="RdBu_r", vmin=-limit, vmax=limit)
+        ax.set_title(f"{label}\n{count} epochs — shared scale", fontsize=11)
+    fig.colorbar(image, ax=list(axes[:2]), label="Mean covariance (µV²)", shrink=0.7)
+
+    difference_image = axes[2].imshow(
+        difference, cmap="RdBu_r", vmin=-difference_limit, vmax=difference_limit,
+    )
+    axes[2].set_title("T1 average minus T2 average\nSeparate difference scale", fontsize=11)
+    fig.colorbar(
+        difference_image, ax=axes[2], label="Covariance difference (µV²)", shrink=0.7,
+    )
+    for ax in axes:
+        ax.set_xlabel("Channel index")
+        ax.set_ylabel("Channel index")
+    save_figure(fig, "class_covariances.png")
+    plt.show()
+    return fig
 
 
 def save_figure(fig, filename, **kwargs):

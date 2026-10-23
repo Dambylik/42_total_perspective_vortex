@@ -107,3 +107,60 @@ We need to distinguish two questions:
 Question	What we examine
 “How large are the recorded voltage fluctuations?”	The signal values, in µV
 “How much does each frequency contribute?”	The spectrum: power density, in µV²/Hz
+
+we turn the filtered recording into labeled examples that a model can learn from. This is called epoching. So one epoch is one time window across many channels, not one channel and not one individual measurement.
+
+Unfitered raw : 
+ <RawEDF | S001R04.edf, 64 x 60000 (375.0 s), ~29.4 MiB, data loaded>
+ the result contains:
+- 64 channels
+- 60,000 samples per channel
+- 375 seconds, because 60000 / 160 = 375
+- Approximately 29.4 MiB of loaded data
+
+What does shaep (45, 64, 321) mean?
+45 epochs
+  × 64 channels per epoch
+  × 321 measurements per channel
+
+Each example contains 20,544 measurements (64 × 321). We need to turn those measurements into a few useful features—numbers that help distinguish the classes.
+
+One epoch: 64 channels × 321 samples
+                  ↓
+                 CSP
+                  ↓
+Four features describing signal variation
+                  ↓
+             Classifier
+                  ↓
+       Predicted label: 1 or 2
+
+Variance measures how spread out a signal’s values are around their average. variance describes one channel’s fluctuations:
+To calculate variance:
+1. Find the average.
+2. Subtract it from each measurement.
+3. Square those differences.
+4. Take their average.
+
+covariance describes how two channels fluctuate together. CSP uses that relationship to learn useful channel combinations.
+To calculate covariance, we:
+1. Subtract each channel’s own average.
+2. Multiply the two deviations at each matching time.
+3. Average those products.
+If "-" Their covariance is negative. If "+" Their covariance is positive
+If positive and negative products largely cancel, covariance is near zero. That means little linear co-variation, not necessarily no relationship at all.
+
+Each epoch has 64 channels. We calculate covariance for every pair, producing a 64 × 64 covariance matrix:
+             Channel 0     Channel 1     ...
+Channel 0    variance      covariance
+Channel 1    covariance    variance
+...
+The diagonal contains each channel’s variance—its covariance with itself.
+
+
+Let’s compare two manually chosen combinations on your real epochs:
+C3 + C4 → adds the channels
+C3 − C4 → subtracts their shared fluctuations
+CSP searches for useful weights across all 64 channels, aiming for different variance between classes, rather than simply large variance overall.
+
+How to express a weighted channel combination using a vector of weights

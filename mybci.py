@@ -28,7 +28,7 @@ MAX_DELAY = 2.0  # seconds allowed to predict one chunk (from the subject)
 def build_pipeline():
     return Pipeline([
         ("csp", CSP(n_components=4)),               # 64 channels x 321 times -> 4 features
-        ("lda", LinearDiscriminantAnalysis()),       # simple linear classifier, standard for CSP
+        ("lda", LinearDiscriminantAnalysis()),      # simple linear classifier, standard for CSP
     ])
 
 

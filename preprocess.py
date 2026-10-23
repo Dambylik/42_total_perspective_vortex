@@ -1,5 +1,6 @@
 """Load EEG from PhysioNet, filter it, and cut it into labeled epochs (X, y)."""
 import mne
+import numpy as np
 from mne.datasets import eegbci
 from mne.io import concatenate_raws, read_raw_edf
 
@@ -45,21 +46,74 @@ def filter_raw(raw):
 
 def get_epochs(subject, runs):
     """Full preprocessing: load -> filter -> epochs. Returns X (epochs, channels, times) and y."""
-    raw = filter_raw(load_raw(subject, runs))
-    # T0 = rest, we drop it. T1/T2 = the two movements -> labels 1 and 2.
-    events, _ = mne.events_from_annotations(raw, event_id={"T1": 1, "T2": 2})
-    epochs = mne.Epochs(raw, events, tmin=TMIN, tmax=TMAX, picks="eeg",
+    unfiltered_raw = load_raw(subject, runs)
+    # print("Unfitered raw : \n", unfiltered_raw)
+    filtered_raw = filter_raw(unfiltered_raw)
+    # print("Fitered raw : \n", filtered_raw)
+    # raw = filter_raw(load_raw(subject, runs))
+    # T0 = dropped. T1/T2 -> labels 1 and 2.
+    events, _ = mne.events_from_annotations(filtered_raw, event_id={"T1": 1, "T2": 2})
+    # print("This are events :\n", events)
+    epochs = mne.Epochs(filtered_raw, events, tmin=TMIN, tmax=TMAX, picks="eeg",
                         baseline=None, preload=True)
+    # print("This are epochs :\n", epochs)
     X = epochs.get_data(copy=False)
+    # print("This is X :\n", X[0][3])
     y = epochs.events[:, -1]
+    # print("This is y :\n", y[0])
     return X, y
 
 
+def mean_class_covariance(X, y, label):
+    """Average the epoch covariance matrices belonging to one task label."""
+    class_epochs = X[y == label]
+    if len(class_epochs) == 0:
+        raise ValueError(f"No epochs found for label {label}")
+    covariances = [np.cov(epoch) for epoch in class_epochs]
+    return np.mean(covariances, axis=0)
+
+
 def main():
+    # Import the plotting helper only when running this demonstration.
+    from visualize import print_heat_map, plot_class_covariances
+
     X, y = get_epochs(1, [4, 8, 12])
     print("X shape (epochs, channels, times):", X.shape)
-    print("labels:", set(y.tolist()))
+    epoch = X[0][0]
+    # print("Epoch :\n", epoch)
+    print("Epoch length is : ", len(epoch))
+    # print_heat_map(epoch)
+    print("label : ", y[0])
     assert X.ndim == 3 and X.shape[0] == len(y) and set(y.tolist()) == {1, 2}
+
+    # Find channel positions by name rather than guessing their indexes.
+    channel_names = load_raw(1, [4]).ch_names
+    c5_index = channel_names.index("C5")
+    c6_index = channel_names.index("F5")
+
+    c5 = X[:, c5_index, :]
+    c6 = X[:, c6_index, :]
+
+    added = c5 + c6
+    subtracted = c5 - c6
+
+    for name, signals in [("C5 + C6", added), ("C5 - C6", subtracted)]:
+        variances = signals.var(axis=1) * 1e12
+
+        left_mean = variances[y == 1].mean()
+        right_mean = variances[y == 2].mean()
+
+        print(name)
+        print("  Left-imagery mean variance:", left_mean, "µV²")
+        print("  Right-imagery mean variance:", right_mean, "µV²")
+    # Exploration only: these are not fitted classifier parameters or test scores.
+    # left_covariance = mean_class_covariance(X, y, label=1)
+    # right_covariance = mean_class_covariance(X, y, label=2)
+    # counts = (int(np.sum(y == 1)), int(np.sum(y == 2)))
+    # print("Left-imagery epochs:", counts[0])
+    # print("Right-imagery epochs:", counts[1])
+    # print("Mean covariance shape per class:", left_covariance.shape)
+    # plot_class_covariances(left_covariance, right_covariance, run=4, counts=counts)
 
 
 if __name__ == "__main__":

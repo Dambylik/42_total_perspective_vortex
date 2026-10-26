@@ -76,8 +76,14 @@ def mean_class_covariance(X, y, label):
 def main():
     # Import the plotting helper only when running this demonstration.
     from visualize import print_heat_map, plot_class_covariances
+    from csp import CSP
 
     X, y = get_epochs(1, [4, 8, 12])
+    print(X[0])
+    print(len(X[0]))
+    print(CSP._mean_covariance(X[[0]]))
+    print(len(X[[0]]))
+
     print("X shape (epochs, channels, times):", X.shape)
     epoch = X[0][0]
     # print("Epoch :\n", epoch)

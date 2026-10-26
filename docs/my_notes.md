@@ -164,3 +164,32 @@ C3 − C4 → subtracts their shared fluctuations
 CSP searches for useful weights across all 64 channels, aiming for different variance between classes, rather than simply large variance overall.
 
 How to express a weighted channel combination using a vector of weights
+
+Here is where we are:
+Step	What you have learned
+Load EEG	Each recording contains 64 channels sampled at 160 Hz.
+Filter	Keep approximately 7–30 Hz in each channel.
+Create epochs	Extract labeled windows: your X has shape (45, 64, 321).
+Calculate variance	Measure how strongly one signal fluctuates.
+Calculate covariance	Measure how channels fluctuate together.
+Compare classes	Average covariance matrices separately for left and right imagery.
+
+
+Interference is unwanted activity mixed into the signal we want to study.
+Near 1 → greater left variance.
+Near 0 → greater right variance.
+Near 0.5 → similar variances.
+
+
+the weights are in eigenvectors. The scores are in eigenvalues.
+covs[0]  # Average covariance pattern for label 1: left imagery
+covs[1]  # Average covariance pattern for label 2: right imagery
+eigenvectors	Recipes: which weights to apply to the channels
+eigenvalues	Scores: the variance ratio produced by each recipe
+
+CSP does not make the final left/right prediction. It creates useful signals; we measure their variance, and the classifier uses those measurements to predict the class.
+
+4 is the number of channel combinations we keep, not the number of weights. Each combination contains 64 weights—one per channel.
+For now, read n_components=4 as:
+“Try keeping four combinations. We will evaluate that choice later.”
+During training, CSP uses the labeled examples to calculate candidate recipes and identify those with strong differences in variance between classes. It then keeps 4.

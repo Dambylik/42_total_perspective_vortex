@@ -13,10 +13,9 @@ from sklearn.base import BaseEstimator, TransformerMixin
 class CSP(BaseEstimator, TransformerMixin):
 
     def __init__(self, n_components=4):
-        # sklearn rule: __init__ only stores parameters, no computation.
         self.n_components = n_components
 
-    def fit(self, X, y):
+    def fit(self, X, y): #learn how to combine channels
         """X: (n_epochs, n_channels, n_times), y: labels. Learns self.filters_."""
         self.classes_ = np.unique(y)
         if len(self.classes_) != 2:
@@ -36,7 +35,7 @@ class CSP(BaseEstimator, TransformerMixin):
         self.filters_ = eigenvectors[:, order[:self.n_components]]  # W: (channels, n_components)
         return self  # sklearn rule: fit returns self
 
-    def transform(self, X):
+    def transform(self, X): #use those combinations to calculate features
         """Project each epoch with W^T and return log-variance features (n_epochs, n_components)."""
         X_csp = np.einsum("ck,ect->ekt", self.filters_, X)  # W^T @ X for every epoch e
         variance = X_csp.var(axis=2)

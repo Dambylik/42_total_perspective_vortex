@@ -29,7 +29,7 @@ python mybci.py 4 14 train
 python mybci.py 4 14 predict
 ```
 
-The first download can take time before a plot appears. Recordings are cached under `data/`; later uses of the same recording read the cache. Dataset files, saved models and the virtual environment are ignored by Git.
+The loader first checks `physionet.org/files/eegmmidb/1.0.0/` beside the project scripts for recordings downloaded with wget. If its `SHA256SUMS.txt` is present, local files are checked against it to avoid reading incomplete downloads. Missing or invalid files fall back to MNE's existing cache/downloader under `data/`. Files are selected individually, so partial local datasets are supported. Both dataset folders, saved models and the virtual environment are ignored by Git.
 
 `python mybci.py` starts the full configured evaluation across 109 participants and six groups. Start with one participant and task before attempting this larger download and computation. See the experiment-definition and evaluation limitations below.
 

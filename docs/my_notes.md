@@ -1,3 +1,9 @@
+The subject focuses on implementing the algorithm of dimensionality reduction, to
+further transform filtered data before classification. This algorithm will have to be in-
+tegrated within sklearn so you’ll be able to use sklearn tools for classification and score
+validation.
+
+
 This project is about teaching a computer to recognize two kinds of movement from recordings of brain activity.
 
 The screen gives an instruction such as:
@@ -193,3 +199,94 @@ CSP does not make the final left/right prediction. It creates useful signals; we
 For now, read n_components=4 as:
 “Try keeping four combinations. We will evaluate that choice later.”
 During training, CSP uses the labeled examples to calculate candidate recipes and identify those with strong differences in variance between classes. It then keeps 4.
+
+LDA learns which feature patterns tend to accompany label 1 or 2. Your pipeline connects these operations automatically.
+
+
+
+Use filtered epochs as input to CSP. CSP combines the channels and extracts power-related features; LDA uses those features to classify the task.
+
+Your formatted epoch: (64, 321)
+        ↓
+CSP creates 4 channel combinations
+        ↓
+Summarize each combination using log-power
+        ↓
+4 features
+        ↓
+LDA predicts label 1 or 2
+
+
+Our choices are:
+- Frequency band: 7–30 Hz.
+- Time window: 0.5–2.5 seconds after each instruction.
+- Feature method: power-related features from CSP combinations.
+- Number of components: initially four.
+Then CSP uses the labeled training epochs to learn the weights for those four channel combinations. It does not independently decide the frequency band, window duration, or number of components.
+Our decisions: band, window, CSP, four components
+                         ↓
+CSP learns channel weights from training examples
+                         ↓
+Calculate four log-power features per epoch
+                         ↓
+LDA predicts the class
+
+why CSP -> “CSP learns how to mix electrode signals so that differences between our two tasks become clearer.”
+CSP starts with the 64 channel recordings and creates the features. It does not start with four existing features.
+Here is what happens:
+1. During training, CSP examines epochs and their labels.
+It compares how the channels fluctuate together during the two tasks, using their covariance matrices.
+One epoch: 64 channels × 321 measurements
+                       ↓
+          Apply four learned recipes
+                       ↓
+          Four signals, 321 samples each
+                       ↓
+       Calculate log-power for each signal
+                       ↓
+                  Four features
+
+Yes—the channel-combination step reduces (64, 321) to (4, 321). Then calculating log-power reduces those four signals to four feature values.
+
+CSP calculates and selects the recipes using how differently their signals fluctuate between the two classes.
+
+In the first two panels, the colours mean:
+- Red: two channels tend to fluctuate together.
+- Blue: two channels tend to fluctuate in opposite directions.
+Red does not mean “left hand,” and blue does not mean “right hand.” Both tasks can produce mostly positive covariance, so both panels look red.
+
+There, red means “larger for left,” and blue means “larger for right.” Its colours have a different interpretation from the first two panels.
+
+Covariance measures whether two signals tend to rise and fall together.
+We compare each signal with its own average:
+- Positive covariance: they tend to be above their averages together and below them together.
+- Negative covariance: one tends to be above its average when the other is below.
+- Near zero: no strong pattern of moving together in this sense.
+
+
+we calculate one covariance matrix per epoch, then average them separately for left and right imagery. That gives two class summaries. The third matrix—the left-minus-right heatmap—is only for us to inspect. Your CSP does not use that subtraction matrix.
+
+CSP uses the two class averages to find channel-mixing recipes:
+this math line is the solver that calculates CSP’s candidate channel-mixing recipes and their scores.
+eigenvalues, eigenvectors = eigh(
+    covs[0], the left-class average covariance matrix.
+    covs[0] + covs[1], the sum of the two class matrices.
+)
+
+What comes out?
+Output	    Shape for 64 channels	    Meaning
+eigenvalues	(64,)	                    One variance-ratio score per candidate
+eigenvectors	(64, 64)	              Each column contains one candidate’s 64 channel weights
+
+weights = eigenvectors[:, 0]  # First candidate recipe
+score = eigenvalues[0]       # Its corresponding score
+
+The score represents:
+                  Left-class variance
+Score = ──────────────────────────────────────────
+        Left-class variance + Right-class variance
+
+So:
+- Near 1 → relatively greater left-class variance.
+- Near 0 → relatively greater right-class variance.
+- Near 0.5 → similar variances.

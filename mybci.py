@@ -19,6 +19,7 @@ from sklearn.pipeline import Pipeline
 
 from csp import CSP
 from preprocess import EXPERIMENTS, find_experiment, get_epochs
+from preprocess import load_raw as parse, filter_raw as preprocess, format_data
 
 N_SUBJECTS = 109
 MODEL_DIR = "./models"
@@ -35,15 +36,20 @@ def build_pipeline():
 def split_runs(run):
     """Training runs = the other runs of the experiment containing `run`."""
     runs = find_experiment(run)
-    return [r for r in runs if r != run]
+    training_runs = []
+
+    for recording_run in runs:
+        if recording_run != run:
+            training_runs.append(recording_run)
+    return training_runs
 
 
 def model_path(subject, run):
     return os.path.join(MODEL_DIR, f"subject{subject:03d}_run{run:02d}.joblib")
 
 
-def train(subject, run):
-    X, y = get_epochs(subject, split_runs(run))
+def train(subject, run, data=None):
+    X, y = get_epochs(subject, split_runs(run)) if data is None else data
     pipeline = build_pipeline()
 
     # 10 random splits (different each time: no random_state) -> honest estimate.
@@ -57,12 +63,12 @@ def train(subject, run):
     joblib.dump(pipeline, model_path(subject, run))
 
 
-def predict(subject, run):
+def predict(subject, run, data=None):
     path = model_path(subject, run)
     if not os.path.exists(path):
         sys.exit(f"No model found, run first: python mybci.py {subject} {run} train")
     pipeline = joblib.load(path)
-    X, y = get_epochs(subject, [run])  # never-learned data
+    X, y = get_epochs(subject, [run]) if data is None else data
 
     print("epoch nb: [prediction] [truth] equal?")
     correct = 0
@@ -119,7 +125,18 @@ def main():
         find_experiment(run)
     except ValueError as error:
         sys.exit(str(error))
-    train(subject, run) if mode == "train" else predict(subject, run)
+    if mode == "predict" and not os.path.exists(model_path(subject, run)):
+        sys.exit(f"No model found, run first: python mybci.py {subject} {run} train")
+
+    runs = split_runs(run) if mode == "train" else [run] # [6, 10] and [14] for test
+    raw = parse(subject, runs) # Shape (64, 40000)
+    filtered = preprocess(raw)
+    X, y = format_data(filtered)
+
+    if mode == "train":
+        train(subject, run, data=(X, y))
+    else:
+        predict(subject, run, data=(X, y))
 
 
 if __name__ == "__main__":

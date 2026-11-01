@@ -9,7 +9,7 @@ from mne.io import concatenate_raws, read_raw_edf
 
 DATA_PATH = "./data"   # downloaded .edf files live here (git-ignored)
 LOCAL_DATA_PATH = Path(__file__).resolve().parent / "physionet.org/files/eegmmidb/1.0.0"
-LOW_FREQ, HIGH_FREQ = 7.0, 30.0   # mu (8-12 Hz) + beta (13-30 Hz) = motor rhythms
+LOW_FREQ, HIGH_FREQ = 7.0, 30.0 
 TMIN, TMAX = 0.5, 2.5  # seconds after the cue; skip the first 0.5 s (eye/visual reaction)
 
 EXPERIMENTS = [
@@ -104,13 +104,14 @@ def main():
     from csp import CSP
 
     # Parse process
-    raw6 = load_raw(1, [6])
+    raw6 = load_raw(1, [5])
     data, times = raw6[:][:]
     print("\nRun 6:\nShape of the experiment", data.shape)
     print("Samples per channel :", data.shape[1])
     print(f"160 measurements per second for : {data.shape[1]/160/60:.2f} mins")
     print(f"Data from the run for the first 5 channels:\n{np.round(data[:5] * 1e6, 2)}")
     print(f"Times from the run for the first 5 channels:\n{np.round(times[:5] * 1e6, 2)}")
+    # print_channel_power(raw)
     print("\n_____________________________________________________________________\n")
 
     # Preprocess process
@@ -121,6 +122,8 @@ def main():
     print(f"160 measurements per second for : {preprocessed_data.shape[1]/160/60:.2f} mins")
     print(f"Data from the run for the first 5 channels:\n{np.round(preprocessed_data[:5] * 1e6, 2)}")
     print(f"Times from the run for the first 5 channels:\n{np.round(preprocessed_times[:5] * 1e6, 2)}")
+    # print("\nFiltered recording information:")
+    # print_recording_info(filtered)
     print("\n_____________________________________________________________________\n")
 
     # Formatting process
@@ -129,7 +132,7 @@ def main():
     print("X shape (epochs, channels, times):", X.shape)
     print("First epoch shape:", X[0].shape)
     with np.printoptions(precision=2, suppress=True, floatmode="fixed"):
-        print("First epoch in µV:\n", X[0][0] * 1e6)
+        print("First epoch in µV X[0][0]:\n", X[0][0] * 1e6)
     print("Its label is:", y[0])
     # print_heat_map(X[0])
     # print("label : ", y[0])

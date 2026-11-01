@@ -199,7 +199,7 @@ EDF files
 
 For `python mybci.py 4 14 train`, the current code selects the related group `[6, 10, 14]`, trains using runs 6 and 10, and reserves run 14 for `predict`.
 
-Within training data, `cross_val_score` uses `ShuffleSplit`: ten random 80/20 training/validation splits. This is repeated random holdout, not five fixed folds. A **fold** means a subset of examples, not an experiment or necessarily a whole recording. Validation helps select settings; final test results must not guide repeated tuning.
+In `train()`, `cross_val_score` uses ten random 80/20 epoch-level splits, so it prints ten validation scores. These estimate performance on held-out epochs from the available training runs; they do not estimate performance on a completely unseen run. `evaluate()` provides the run-held-out evaluation. The saved pipeline is then fitted on all allowed training runs.
 
 After cross-validation, `pipeline.fit(X, y)` fits the saved model on all allowed training examples. Cross-validation fits separate clones; it does not fit this original pipeline for later prediction.
 
@@ -208,9 +208,9 @@ The assignment's goal is at least 60% mean test accuracy under its required eval
 ### Current limitations to understand before final evaluation
 
 - The two pooled experiment definitions require clarification against assignment expectations.
-- `run_all()` holds out the last run of each configured group and averages subject accuracies within each group, then averages the six group means. It does not perform the training-mode cross-validation inside that sweep.
+- `run_all()` holds out the last run of each configured group, trains once per subject/group on the other runs, then averages subject accuracies within each group and the six group means.
 - `run_all()` catches all exceptions and skips the failed subject/group pair. A final report needs exclusions and coverage, and should distinguish data problems from programming errors.
-- Training-mode random splits currently have no fixed seed or explicit stratification. Recording seeds and considering class balance/run grouping will improve evaluation clarity.
+- Epoch-level training validation can include epochs from the same recording in both sides of a split. Use `evaluate()` when the question is performance on an unseen recording run.
 - Playback supplies precomputed epochs one at a time and times prediction. Filtering the complete recording beforehand can use future samples; this does not establish causal live processing or the latency of the complete preprocessing chain. The assignment's two-second deadline must be assessed with explicit timing boundaries.
 
 ## Code map and learning path

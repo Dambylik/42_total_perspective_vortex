@@ -164,7 +164,6 @@ def visualize_recording(raw, subject, run):
     save_sensor_plot(raw)
     save_signal_plot(raw, "raw signal", "signal_before.png", subject, run)
     save_spectrum_plot(raw, "power spectrum BEFORE filtering", "spectrum_before.png")
-    # print_channel_power(raw)
 
     filtered = filter_raw(raw)
     save_signal_plot(
@@ -187,4 +186,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nVisualization stopped.")
+        sys.exit(130)
+    finally:
+        plt.close("all")

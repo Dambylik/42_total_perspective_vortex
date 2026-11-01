@@ -17,17 +17,23 @@ class CSP(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y): #learn how to combine channels
         """X: (n_epochs, n_channels, n_times), y: labels. Learns self.filters_."""
-        self.classes_ = np.unique(y)
+        self.classes_ = np.unique(y) # self.classes_ = [1, 2]
         if len(self.classes_) != 2:
             raise ValueError("CSP works with exactly 2 classes")
 
         # 1. Average covariance matrix of each class (channels x channels).
-        covs = [self._mean_covariance(X[y == c]) for c in self.classes_]
+        covs = []
+        for label in self.classes_:
+            class_epochs = X[y == label]
+            average_covariance = self._mean_covariance(class_epochs)
+            covs.append(average_covariance)
 
         # 2. Generalized eigenvalue problem:  C_a w = lambda (C_a + C_b) w
         #    lambda close to 1 -> variance mostly from class a
         #    lambda close to 0 -> variance mostly from class b
         eigenvalues, eigenvectors = eigh(covs[0], covs[0] + covs[1])
+        #covs[0]: the left-class average covariance matrix.
+        # covs[0] + covs[1]: the sum of the two class matrices.
 
         # 3. The most useful filters are at BOTH ends of the sorted eigenvalues.
         #    Sort by distance from 0.5, so the best filters come first.
@@ -37,8 +43,12 @@ class CSP(BaseEstimator, TransformerMixin):
 
     def transform(self, X): #use those combinations to calculate features
         """Project each epoch with W^T and return log-variance features (n_epochs, n_components)."""
-        X_csp = np.einsum("ck,ect->ekt", self.filters_, X)  # W^T @ X for every epoch e
-        variance = X_csp.var(axis=2)
+        X_csp = np.einsum("ck,ect->ekt", self.filters_, X)   #3D array with shape (15, 4, 321)
+        # c: channel, summed away
+        # k: filter, kept
+        # e: epoch, kept
+        # t: time, kept
+        variance = X_csp.var(axis=2) #xis=2 means “calculate across the 321 time points.
         # normalize (relative power) then log: makes features closer to Gaussian, which LDA likes
         return np.log(variance / variance.sum(axis=1, keepdims=True))
 

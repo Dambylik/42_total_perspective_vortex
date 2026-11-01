@@ -4,6 +4,7 @@ Run:   python sampling_demo.py
 Save:  python sampling_demo.py --save sampling_demo.png
 
 This uses an invented sine wave, not a recording from the EEG dataset.
+Move the slider above 80 Hz to see aliasing at a fixed 160 Hz sampling rate.
 """
 
 import argparse
@@ -43,11 +44,15 @@ def make_figure():
         [], [], "o", color="tab:orange", markersize=4,
         label="Recorded measurements (160 per second)",
     )
+    alias_line, = ax.plot(
+        [], [], "--", color="tab:green", linewidth=2,
+        label="Lower-frequency wave with identical samples",
+    )
     ax.legend(loc="lower left", bbox_to_anchor=(0, 1.02))
 
     slider_ax = fig.add_axes([0.25, 0.20, 0.60, 0.04])
     frequency_slider = Slider(
-        slider_ax, "Wave frequency (Hz)", 2, 30, valinit=10, valstep=1,
+        slider_ax, "Wave frequency (Hz)", 2, 200, valinit=10, valstep=1,
     )
     checkbox_ax = fig.add_axes([0.10, 0.07, 0.43, 0.08])
     zoom_checkbox = CheckButtons(
@@ -65,11 +70,26 @@ def make_figure():
         wave_line.set_data(curve_times, curve_values)
         sample_dots.set_data(sample_times, sample_values)
 
+        # Frequencies separated by the sampling rate give identical sine samples.
+        # A negative alias frequency represents a reversed sine phase.
+        alias_frequency = (frequency + SAMPLING_RATE / 2) % SAMPLING_RATE - SAMPLING_RATE / 2
+        alias_values = AMPLITUDE * np.sin(2 * np.pi * alias_frequency * curve_times)
+        alias_line.set_data(curve_times, alias_values)
+        alias_line.set_visible(frequency > SAMPLING_RATE / 2)
+        alias_line.set_label(f"Also fits the samples: {abs(alias_frequency):.0f} Hz")
+        ax.legend(loc="lower left", bbox_to_anchor=(0, 1.02))
+
         zoomed = zoom_checkbox.get_status()[0]
         ax.set_xlim(0, 0.1 if zoomed else DURATION)
+        if frequency == SAMPLING_RATE / 2:
+            detail = "80 Hz boundary: this sine starts at zero, and all its samples are zero."
+        elif frequency > SAMPLING_RATE / 2:
+            detail = f"Aliasing: the same dots also fit a {abs(alias_frequency):.0f} Hz wave (green dashed)."
+        else:
+            detail = "Below the 80 Hz boundary. Zoom in to inspect the individual measurements."
         status.set_text(
             f"Wave: {frequency:.0f} cycles/second   |   "
-            f"Measurement interval: {1 / SAMPLING_RATE:.5f} seconds"
+            f"Measurement interval: {1 / SAMPLING_RATE:.5f} seconds\n{detail}"
         )
         fig.canvas.draw_idle()
 

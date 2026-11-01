@@ -19,7 +19,6 @@ from sklearn.pipeline import Pipeline
 
 from csp import CSP
 from preprocess import EXPERIMENTS, find_experiment, get_epochs
-from preprocess import load_raw as parse, filter_raw as preprocess, format_data
 
 N_SUBJECTS = 109
 MODEL_DIR = "./models"
@@ -48,12 +47,15 @@ def model_path(subject, run):
     return os.path.join(MODEL_DIR, f"subject{subject:03d}_run{run:02d}.joblib")
 
 
-def train(subject, run, data=None):
-    X, y = get_epochs(subject, split_runs(run)) if data is None else data
+def train(subject, run):
+    runs = split_runs(run)
+    datasets = [get_epochs(subject, [recording_run]) for recording_run in runs]
+    X = np.concatenate([data[0] for data in datasets])
+    y = np.concatenate([data[1] for data in datasets])
     pipeline = build_pipeline()
 
-    # 10 random splits (different each time: no random_state) -> honest estimate.
-    cv = ShuffleSplit(n_splits=10, test_size=0.2)
+    # Ten random epoch-level splits, matching the original validation output.
+    cv = ShuffleSplit(n_splits=10, test_size=0.2, random_state=42)
     scores = cross_val_score(pipeline, X, y, cv=cv)
     print(np.round(scores, 4))
     print(f"cross_val_score: {scores.mean():.4f}")
@@ -85,9 +87,11 @@ def predict(subject, run, data=None):
 
 
 def evaluate(subject, runs):
-    """Train on all runs but the last one, return accuracy on the last one."""
-    X_train, y_train = get_epochs(subject, runs[:-1])
-    X_test, y_test = get_epochs(subject, runs[-1:])
+    """Train once on all but the last run and score on that held-out run."""
+    train_data = [get_epochs(subject, [run]) for run in runs[:-1]]
+    X_train = np.concatenate([data[0] for data in train_data])
+    y_train = np.concatenate([data[1] for data in train_data])
+    X_test, y_test = get_epochs(subject, [runs[-1]])
     return build_pipeline().fit(X_train, y_train).score(X_test, y_test)
 
 
@@ -128,15 +132,10 @@ def main():
     if mode == "predict" and not os.path.exists(model_path(subject, run)):
         sys.exit(f"No model found, run first: python mybci.py {subject} {run} train")
 
-    runs = split_runs(run) if mode == "train" else [run] # [6, 10] and [14] for test
-    raw = parse(subject, runs) # Shape (64, 40000)
-    filtered = preprocess(raw)
-    X, y = format_data(filtered)
-
     if mode == "train":
-        train(subject, run, data=(X, y))
-    else:
-        predict(subject, run, data=(X, y))
+        return train(subject, run)
+
+    predict(subject, run)
 
 
 if __name__ == "__main__":

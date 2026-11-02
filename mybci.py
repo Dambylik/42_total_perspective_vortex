@@ -52,7 +52,6 @@ def train(subject, run):
     y = np.concatenate([data[1] for data in datasets])
     pipeline = build_pipeline()
 
-    # Ten random epoch-level splits, matching the original validation output.
     cv = ShuffleSplit(n_splits=10, test_size=0.2, random_state=42)
     scores = cross_val_score(pipeline, X, y, cv=cv)
     print(np.round(scores, 4))
@@ -126,16 +125,19 @@ def main():
     args = sys.argv[1:]
     if not args:
         return run_all()
+    
     if len(args) != 3 or args[2] not in ("train", "predict") \
             or not args[0].isdigit() or not args[1].isdigit():
         sys.exit(__doc__)
     subject, run, mode = int(args[0]), int(args[1]), args[2]
     if not 1 <= subject <= N_SUBJECTS:
         sys.exit(f"subject must be between 1 and {N_SUBJECTS}")
+    
     try:
         find_experiment(run)
     except ValueError as error:
         sys.exit(str(error))
+    
     if mode == "predict" and not os.path.exists(model_path(subject, run)):
         sys.exit(f"No model found, run first: python mybci.py {subject} {run} train")
 
@@ -146,4 +148,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nInterrupted by user.")
+        sys.exit(130)

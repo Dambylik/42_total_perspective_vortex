@@ -34,10 +34,9 @@ def find_experiment(run):
 
 def load_raw(subject, runs):
     """Prefer wget recordings; use MNE's cache/downloader for missing files."""
-    if isinstance(runs, (int, np.integer)): # if One integer → convert to [6], if [6, 10] is already a list → leave it unchanged
-        runs = [runs] # why, cause t can loop over [6] or [6, 10], but cannot loop over the integer 6.
+    if isinstance(runs, (int, np.integer)):
+        runs = [runs]
 
-    #This block only loads the expected fingerprints. It does not check the recordings yet. Later code calculates each local recording’s fingerprint and compares it with the expected one.
     checksums = {}
     manifest = LOCAL_DATA_PATH / "SHA256SUMS.txt"
     if manifest.is_file():
@@ -46,14 +45,14 @@ def load_raw(subject, runs):
             checksums[filename.lstrip("*")] = digest
 
     files = []
-    for run in runs: # cause we need here a list
-        relative = f"S{subject:03d}/S{subject:03d}R{run:02d}.edf" #S004/S004R06.edf
-        local_file = LOCAL_DATA_PATH / relative # Joins that relative filename to the dataset folder, producing the full file path.
-        use_local = local_file.is_file() # use_local becomes True if the file exists, otherwise False.
+    for run in runs:
+        relative = f"S{subject:03d}/S{subject:03d}R{run:02d}.edf"
+        local_file = LOCAL_DATA_PATH / relative 
+        use_local = local_file.is_file() 
         if use_local and relative in checksums:
-            with local_file.open("rb") as stream: #Opens the file for reading binary data. EDF recordings are binary files. with ensures the file closes afterward.
-                digest = hashlib.file_digest(stream, "sha256").hexdigest() #Reads the file and calculates its SHA-256 fingerprint. hexdigest() represents that fingerprint as text.
-            use_local = digest == checksums[relative] #Compares the calculated fingerprint with the expected fingerprint:
+            with local_file.open("rb") as stream:
+                digest = hashlib.file_digest(stream, "sha256").hexdigest()
+            use_local = digest == checksums[relative]
             if not use_local:
                 print(f"Incomplete or invalid local recording: {local_file}; using MNE instead.")
         if use_local:

@@ -71,7 +71,6 @@ def make_figure():
         sample_dots.set_data(sample_times, sample_values)
 
         # Frequencies separated by the sampling rate give identical sine samples.
-        # A negative alias frequency represents a reversed sine phase.
         alias_frequency = (frequency + SAMPLING_RATE / 2) % SAMPLING_RATE - SAMPLING_RATE / 2
         alias_values = AMPLITUDE * np.sin(2 * np.pi * alias_frequency * curve_times)
         alias_line.set_data(curve_times, alias_values)

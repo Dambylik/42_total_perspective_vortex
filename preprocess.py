@@ -7,10 +7,10 @@ import numpy as np
 from mne.datasets import eegbci
 from mne.io import concatenate_raws, read_raw_edf
 
-DATA_PATH = "./data"   # downloaded .edf files live here (git-ignored)
+DATA_PATH = "./data"
 LOCAL_DATA_PATH = Path(__file__).resolve().parent / "physionet.org/files/eegmmidb/1.0.0"
 LOW_FREQ, HIGH_FREQ = 7.0, 30.0 
-TMIN, TMAX = 0.5, 2.5  # seconds after the cue; skip the first 0.5 s (eye/visual reaction)
+TMIN, TMAX = 0.5, 2.5
 
 EXPERIMENTS = [
     [3, 7, 11],               # 0: real movement,     left fist vs right fist
@@ -97,98 +97,3 @@ def mean_class_covariance(X, y, label):
         raise ValueError(f"No epochs found for label {label}")
     covariances = [np.cov(epoch) for epoch in class_epochs]
     return np.mean(covariances, axis=0)
-
-
-def main():
-    from visualize import print_heat_map, plot_class_covariances
-    from csp import CSP
-
-    # Parse process
-    raw6 = load_raw(1, [5])
-    data, times = raw6[:][:]
-    print("\nRun 6:\nShape of the experiment", data.shape)
-    print("Samples per channel :", data.shape[1])
-    print(f"160 measurements per second for : {data.shape[1]/160/60:.2f} mins")
-    print(f"Data from the run for the first 5 channels:\n{np.round(data[:5] * 1e6, 2)}")
-    print(f"Times from the run for the first 5 channels:\n{np.round(times[:5] * 1e6, 2)}")
-    # print_channel_power(raw)
-    print("\n_____________________________________________________________________\n")
-
-    # Preprocess process
-    preprocessed_raw = filter_raw(raw6)
-    print("\nRun 6 filtered by 7-30 Hz band\n", preprocessed_raw)
-    preprocessed_data, preprocessed_times = preprocessed_raw[:][:]
-    print("Samples per channel :", preprocessed_data.shape[1])
-    print(f"160 measurements per second for : {preprocessed_data.shape[1]/160/60:.2f} mins")
-    print(f"Data from the run for the first 5 channels:\n{np.round(preprocessed_data[:5] * 1e6, 2)}")
-    print(f"Times from the run for the first 5 channels:\n{np.round(preprocessed_times[:5] * 1e6, 2)}")
-    # print("\nFiltered recording information:")
-    # print_recording_info(filtered)
-    print("\n_____________________________________________________________________\n")
-
-    # Formatting process
-    X, y = format_data(preprocessed_raw)
-    print("\nConverted into labeled EEG windows (X, y), 1 window runs 2 seconds")
-    print("X shape (epochs, channels, times):", X.shape)
-    print("First epoch shape:", X[0].shape)
-    with np.printoptions(precision=2, suppress=True, floatmode="fixed"):
-        print("First epoch in µV X[0][0]:\n", X[0][0] * 1e6)
-    print("Its label is:", y[0])
-    # print_heat_map(X[0])
-    # print("label : ", y[0])
-    # assert X.ndim == 3 and X.shape[0] == len(y) and set(y.tolist()) == {1, 2}
-    print("\n_____________________________________________________________________\n")
-
-    # Connect X, y to the MNE’s CSP pipeline:
-    from mne.decoding import CSP
-    from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-    from sklearn.model_selection import StratifiedShuffleSplit, cross_val_score
-    from sklearn.pipeline import Pipeline
-
-    pipeline = Pipeline([
-        ("csp", CSP(n_components=4, log=True)),
-        ("classifier", LinearDiscriminantAnalysis()),
-    ])
-
-    cv = StratifiedShuffleSplit(
-        n_splits=10,
-        test_size=0.2,
-        random_state=42,
-    )
-    scores = cross_val_score(pipeline, X, y, cv=cv)
-    print("Validation scores:", scores)
-    print(f"Mean validation accuracy: {scores.mean():.2%}")
-    
-
-    # Find channel positions by name rather than guessing their indexes.
-    channel_names = load_raw(1, [4]).ch_names
-    c5_index = channel_names.index("C5")
-    c6_index = channel_names.index("F5")
-
-    c5 = X[:, c5_index, :]
-    c6 = X[:, c6_index, :]
-
-    added = c5 + c6
-    subtracted = c5 - c6
-
-    for name, signals in [("C5 + C6", added), ("C5 - C6", subtracted)]:
-        variances = signals.var(axis=1) * 1e12
-
-        left_mean = variances[y == 1].mean()
-        right_mean = variances[y == 2].mean()
-
-        print(name)
-        print("  Left-imagery mean variance:", left_mean, "µV²")
-        print("  Right-imagery mean variance:", right_mean, "µV²")
-    # Exploration only: these are not fitted classifier parameters or test scores.
-    # left_covariance = mean_class_covariance(X, y, label=1)
-    # right_covariance = mean_class_covariance(X, y, label=2)
-    # counts = (int(np.sum(y == 1)), int(np.sum(y == 2)))
-    # print("Left-imagery epochs:", counts[0])
-    # print("Right-imagery epochs:", counts[1])
-    # print("Mean covariance shape per class:", left_covariance.shape)
-    # plot_class_covariances(left_covariance, right_covariance, run=4, counts=counts)
-
-
-if __name__ == "__main__":
-    main()

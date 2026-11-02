@@ -4,11 +4,9 @@
 """
 import sys
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import numpy as np
-
 from preprocess import HIGH_FREQ, LOW_FREQ, filter_raw, load_raw
 
 
@@ -42,29 +40,19 @@ def print_heat_map(epoch):
 
 
 def plot_class_covariances(first_covariance, second_covariance, run, counts):
-    """Compare class averages in µV²; the difference uses its own colour scale."""
+    """Compare the two class-average covariance matrices in µV²."""
     labels = get_annotation_labels(run)
     matrices = (first_covariance * 1e12, second_covariance * 1e12)
     limit = max(np.abs(matrix).max() for matrix in matrices) or 1.0
-    difference = matrices[0] - matrices[1]
-    difference_limit = np.abs(difference).max() or 1.0
 
-    fig, axes = plt.subplots(1, 3, figsize=(17, 6), layout="constrained")
-    fig.suptitle("Average epoch covariances by task — exploratory comparison")
-    for ax, matrix, label, count in zip(
-        axes[:2], matrices, (labels["T1"], labels["T2"]), counts,
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6), layout="constrained")
+    fig.suptitle("Average epoch covariance by task")
+    for ax, matrix, code, label, count in zip(
+        axes, matrices, ("T1", "T2"), (labels["T1"], labels["T2"]), counts,
     ):
         image = ax.imshow(matrix, cmap="RdBu_r", vmin=-limit, vmax=limit)
-        ax.set_title(f"{label}\n{count} epochs — shared scale", fontsize=11)
-    fig.colorbar(image, ax=list(axes[:2]), label="Mean covariance (µV²)", shrink=0.7)
-
-    difference_image = axes[2].imshow(
-        difference, cmap="RdBu_r", vmin=-difference_limit, vmax=difference_limit,
-    )
-    axes[2].set_title("T1 average minus T2 average\nSeparate difference scale", fontsize=11)
-    fig.colorbar(
-        difference_image, ax=axes[2], label="Covariance difference (µV²)", shrink=0.7,
-    )
+        ax.set_title(f"{code}: {label}\n{count} epochs", fontsize=11)
+    fig.colorbar(image, ax=list(axes), label="Mean covariance (µV²)", shrink=0.7)
     for ax in axes:
         ax.set_xlabel("Channel index")
         ax.set_ylabel("Channel index")
@@ -98,12 +86,12 @@ def print_recording_info(raw):
     """Print recording metadata and the first ten task annotations."""
     print(raw.info)
     print("channels:", raw.ch_names)
-    for annotation in raw.annotations[:10]:
-        print(
-            "Start:", annotation["onset"],
-            "Duration:", annotation["duration"],
-            "Code:", annotation["description"],
-        )
+    # for annotation in raw.annotations[:10]:
+    #     print(
+    #         "Start:", annotation["onset"],
+    #         "Duration:", annotation["duration"],
+    #         "Code:", annotation["description"],
+    #     )
 
 
 def save_sensor_plot(raw):
@@ -160,7 +148,7 @@ def print_channel_power(raw, channel="C3", fmin=7, fmax=30):
 
 def visualize_recording(raw, subject, run):
     """Inspect a loaded recording and save the five before/after figures."""
-    print_recording_info(raw)
+    
     save_sensor_plot(raw)
     save_signal_plot(raw, "raw signal", "signal_before.png", subject, run)
     save_spectrum_plot(raw, "power spectrum BEFORE filtering", "spectrum_before.png")
@@ -181,8 +169,50 @@ def main():
     subject = int(sys.argv[1]) if len(sys.argv) > 1 else 1
     run = int(sys.argv[2]) if len(sys.argv) > 2 else 4
     raw = load_raw(subject, [run])
-    visualize_recording(raw, subject, run)
+    print("\nRaw dataset\n")
+    print_recording_info(raw)
+    # visualize_recording(raw, subject, run)
     # plt.show()
+    print("\n_____________________________________________________________________\n")
+
+
+    # Parse process
+    raw = load_raw(1, [5])
+    data, _ = raw[:][:]
+    print("\nParse process\n")
+    print("\nShape of the experiment", data.shape)
+    print("Samples per channel :", data.shape[1])
+    print(f"160 measurements per second for : {data.shape[1]/160/60:.2f} mins")
+    # print(f"Data from the run for the first 3 channels:\n{np.round(data[:3] * 1e6, 2)}")
+    # print_channel_power(raw)
+    print("\n_____________________________________________________________________\n")
+    
+    # Preprocess process
+    preprocessed_raw = filter_raw(raw)
+    print("\nPreprocess & filtering. Run is filtered by 7-30 Hz band\n")
+    print_recording_info(preprocessed_raw)
+    preprocessed_data, preprocessed_times = preprocessed_raw[:][:]
+    print("Samples per channel :", preprocessed_data.shape[1])
+    print(f"160 measurements per second for : {preprocessed_data.shape[1]/160/60:.2f} mins")
+    # print(f"Data from the run for the first 3 channels:\n{np.round(preprocessed_data[:3] * 1e6, 2)}")
+    # print(f"Times from the run for the first 5 channels:\n{np.round(preprocessed_times[:3] * 1e6, 2)}")
+    print("\n_____________________________________________________________________\n")
+
+    # Formatting process
+    from preprocess import format_data, mean_class_covariance
+    X, y = format_data(preprocessed_raw)
+    print("\nConverted into labeled EEG windows (X, y), 1 window runs 2 seconds\n")
+    print("X shape (epochs, channels, times):", X.shape)
+    print("First epoch shape:", X[0].shape)
+    with np.printoptions(precision=2, suppress=True, floatmode="fixed"):
+        print("First epoch in µV X[0][0]:\n", X[0][0] * 1e6)
+    print("Its label is:", y[0])
+    # print_heat_map(X[0])
+    left_covariance = mean_class_covariance(X, y, label=1)
+    right_covariance = mean_class_covariance(X, y, label=2)
+    counts = (int(np.sum(y == 1)), int(np.sum(y == 2)))
+    # plot_class_covariances(left_covariance, right_covariance, run=4, counts=counts)
+    print("\n_____________________________________________________________________\n")
 
 
 if __name__ == "__main__":

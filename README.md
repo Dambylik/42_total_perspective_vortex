@@ -199,7 +199,7 @@ EDF files
 
 For `python mybci.py 4 14 train`, the current code selects the related group `[6, 10, 14]`, trains using runs 6 and 10, and reserves run 14 for `predict`.
 
-In `train()`, `cross_val_score` uses ten random 80/20 epoch-level splits, so it prints ten validation scores. These estimate performance on held-out epochs from the available training runs; they do not estimate performance on a completely unseen run. `evaluate()` provides the run-held-out evaluation. The saved pipeline is then fitted on all allowed training runs.
+In `train()` and `run_all()`'s `train_and_evaluate()`, `cross_val_score` uses ten random 80/20 epoch-level splits on the training runs. These validation scores estimate performance on held-out epochs; they do not estimate performance on a completely unseen run. Each workflow separately scores a pipeline on the held-out run. In `train()`, the final pipeline is also fitted on all allowed training runs and saved.
 
 After cross-validation, `pipeline.fit(X, y)` fits the saved model on all allowed training examples. Cross-validation fits separate clones; it does not fit this original pipeline for later prediction.
 
@@ -208,7 +208,7 @@ The assignment's goal is at least 60% mean test accuracy under its required eval
 ### Current limitations to understand before final evaluation
 
 - The two pooled experiment definitions require clarification against assignment expectations.
-- `run_all()` holds out the last run of each configured group, trains once per subject/group on the other runs, then averages subject accuracies within each group and the six group means.
+- `run_all()` runs cross-validation on each subject/group's training runs, fits a pipeline on those runs, scores it on the group's last run, and averages held-out test accuracies within each group and across the six group means.
 - `run_all()` catches all exceptions and skips the failed subject/group pair. A final report needs exclusions and coverage, and should distinguish data problems from programming errors.
 - Epoch-level training validation can include epochs from the same recording in both sides of a split. Use `evaluate()` when the question is performance on an unseen recording run.
 - Playback supplies precomputed epochs one at a time and times prediction. Filtering the complete recording beforehand can use future samples; this does not establish causal live processing or the latency of the complete preprocessing chain. The assignment's two-second deadline must be assessed with explicit timing boundaries.

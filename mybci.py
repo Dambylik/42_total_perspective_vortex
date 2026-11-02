@@ -4,8 +4,6 @@
     python mybci.py <subject> <run> predict   replay <run> as a stream and predict it
     python mybci.py                           evaluate the 6 experiments on all 109 subjects
 
-Train / test split (no data leakage): the model is trained on the OTHER runs of the
-same experiment, and tested on <run>, which it has never seen.
 """
 import os
 import sys
@@ -22,13 +20,13 @@ from preprocess import EXPERIMENTS, find_experiment, get_epochs
 
 N_SUBJECTS = 109
 MODEL_DIR = "./models"
-MAX_DELAY = 2.0  # seconds allowed to predict one chunk (from the subject)
+MAX_DELAY = 2.0
 
 
 def build_pipeline():
     return Pipeline([
-        ("csp", CSP(n_components=4)),               # 64 channels x 321 times -> 4 features
-        ("lda", LinearDiscriminantAnalysis()),      # simple linear classifier, standard for CSP
+        ("csp", CSP(n_components=4)),
+        ("lda", LinearDiscriminantAnalysis()),
     ])
 
 
@@ -73,26 +71,34 @@ def predict(subject, run, data=None):
     X, y = get_epochs(subject, [run]) if data is None else data
 
     print("epoch nb: [prediction] [truth] equal?")
-    correct = 0
-    # ponytail: the "stream" is a loop that feeds one epoch at a time, as if it just arrived.
+    correct_score = 0
+    # the "stream" is a loop that feeds one epoch at a time, as if it just arrived.
     for i, (epoch, truth) in enumerate(zip(X, y)):
         start = time.time()
-        prediction = pipeline.predict(epoch[np.newaxis])[0]  # model expects a batch -> add axis
+        prediction = pipeline.predict(epoch[np.newaxis])[0]
         delay = time.time() - start
+        # print(f"prediction time: {delay:.4f}s")
         if delay > MAX_DELAY:
             print(f"WARNING: epoch {i} took {delay:.2f}s (> {MAX_DELAY}s)")
-        correct += prediction == truth
+        correct_score += prediction == truth
         print(f"epoch {i:02d}:\t[{prediction}]\t[{truth}] {prediction == truth}")
-    print(f"Accuracy: {correct / len(y):.4f}")
+    print(f"Accuracy: {correct_score / len(y):.4f}")
 
 
-def evaluate(subject, runs):
-    """Train once on all but the last run and score on that held-out run."""
+def train_and_evaluate(subject, runs):
+    """Validate on training epochs, then test once on the last run."""
     train_data = [get_epochs(subject, [run]) for run in runs[:-1]]
     X_train = np.concatenate([data[0] for data in train_data])
     y_train = np.concatenate([data[1] for data in train_data])
     X_test, y_test = get_epochs(subject, [runs[-1]])
-    return build_pipeline().fit(X_train, y_train).score(X_test, y_test)
+
+    cv = ShuffleSplit(n_splits=10, test_size=0.2, random_state=42)
+    validation_scores = cross_val_score(build_pipeline(), X_train, y_train, cv=cv)
+
+    test_pipeline = build_pipeline()
+    test_pipeline.fit(X_train, y_train)
+    test_score = test_pipeline.score(X_test, y_test)
+    return validation_scores.mean(), test_score
 
 
 def run_all():
@@ -101,12 +107,13 @@ def run_all():
         scores = []
         for subject in range(1, N_SUBJECTS + 1):
             try:
-                score = evaluate(subject, runs)
-            except Exception as error:  # a few PhysioNet recordings are broken
+                _, score = train_and_evaluate(subject, runs)
+            except Exception as error:
                 print(f"experiment {exp}: subject {subject:03d}: skipped ({error})")
                 continue
             scores.append(score)
             print(f"experiment {exp}: subject {subject:03d}: accuracy = {score:.4f}")
+            # print(f"cross-validation = {validation_score:.4f}, test accuracy = {score:.4f}")
         means.append(np.mean(scores))
 
     print(f"\nMean accuracy of the six different experiments for all {N_SUBJECTS} subjects:")
